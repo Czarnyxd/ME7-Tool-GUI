@@ -1,3 +1,19 @@
+## Screenshots
+
+### Configuration
+
+<p align="center">
+  <img src="images/config-window-empty.png" width="750">
+</p>
+
+### Configuration after ECU analysis
+
+<p align="center">
+  <img src="images/config-window-loaded.png" width="750">
+</p>
+
+
+
 # 🚗 ME7 Desktop Tool GUI
 
 **A complete graphical toolkit for analyzing and modifying Bosch ME7 / ME7.5 ECU firmware.**
