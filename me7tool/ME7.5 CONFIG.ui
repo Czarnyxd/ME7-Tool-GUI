@@ -284,7 +284,7 @@ QPushButton:pressed {
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>234</y>
+      <y>210</y>
       <width>91</width>
       <height>16</height>
      </rect>
@@ -302,7 +302,7 @@ QPushButton:pressed {
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>254</y>
+      <y>230</y>
       <width>81</width>
       <height>24</height>
      </rect>
@@ -334,24 +334,6 @@ QPushButton:pressed {
     </property>
     <property name="text">
      <string>Rolling LC Config </string>
-    </property>
-   </widget>
-   <widget class="QCheckBox" name="checkBox">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>200</y>
-      <width>191</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <bold>true</bold>
-     </font>
-    </property>
-    <property name="text">
-     <string>Soft CUT [ experimental ]</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_9">

@@ -97,7 +97,6 @@ from me7_core import (
     write_config_value,
     parse_ecu_file,
     patch_lc_activator,
-    apply_softcut_mode,
     write_rolling_config,
 )
 
@@ -347,7 +346,6 @@ def configure_file_no_checksum(
     activator: str,
     job_dir: Path,
     *,
-    softcut: bool = False,
     rolling_values: Optional[dict] = None,
     rolling_trigger: str = "cruise_set",
 ) -> dict:
@@ -364,11 +362,6 @@ def configure_file_no_checksum(
         log.append("Brak wykrytego configu Launch/Rolling — pomijam zapis konfiguracji.")
         return {"ok": True, "raw": bin_path.name, "log": log}
 
-    if softcut:
-        values = dict(values)
-        values["IgnitionCutDuration"] = 20
-        log.append("Softcut experimental aktywny: IgnitionCutDuration wymuszone na 20 ms, FTOMN będzie przywrócony z launch_output.txt.")
-
     if patch.installed and patch.config_base is not None:
         for name, unit, rel, size, scale, mn, mx in ALS_MAPS:
             if name in values:
@@ -380,8 +373,6 @@ def configure_file_no_checksum(
             patch_lc_activator(data, patch.function_offset, switches[activator])
             log.append("Aktywator Launch ustawiony: " + switches[activator].pretty())
 
-        if softcut:
-            apply_softcut_mode(data, patch, job_dir, log)
     else:
         log.append("Launch config pominięty — brak wykrytego config_base Launch.")
 
@@ -407,7 +398,6 @@ def save_full_pipeline(
     has_config: bool,
     values: dict,
     activator: str,
-    softcut: bool,
     rolling_values: dict,
     rolling_trigger: str = "cruise_set",
 ) -> dict:
@@ -424,7 +414,6 @@ def save_full_pipeline(
             values,
             activator,
             job_dir,
-            softcut=softcut,
             rolling_values=rolling_values,
             rolling_trigger=rolling_trigger,
         )
@@ -453,7 +442,6 @@ def detect_ftomn_in_bin(data: bytes) -> dict:
     Fallback pattern:    address = match_start + 11
     512k fallback:       C2 F4 .. .. 40 94 9D 02 C2 F9 + pointer
 
-    SoftCut rule used by the GUI: FTOMN value > 0x01 means enabled.
     """
     found: list[int] = []
     n = len(data)
@@ -508,7 +496,6 @@ def detect_ftomn_in_bin(data: bytes) -> dict:
         "method": method,
         "address": addr,
         "value": val,
-        "softcut": bool(val is not None and val > 0x01),
         "all": found,
     }
 
@@ -631,13 +618,12 @@ def _extract_summary(logs: list[str], current_name: str = "", output_name: str =
         d["ftomn_addr"] = "0x" + m.group(1).replace("0x", "").upper()
         d["ftomn_from"] = m.group(2).upper()
         d["ftomn_to"] = m.group(3).upper()
-    m = re.search(r"GUI_FTOMN\s+addr=(0x[0-9A-F]+)\s+value=(0x[0-9A-F]{2})\s+count=(\d+)\s+method=([^\s]+)\s+softcut=(\d+)", text, re.I)
+    m = re.search(r"GUI_FTOMN\s+addr=(0x[0-9A-F]+)\s+value=(0x[0-9A-F]{2})\s+count=(\d+)\s+method=([^\s]+)", text, re.I)
     if m:
         d["ftomn_addr"] = m.group(1).upper().replace("X", "x")
         d["ftomn_value"] = m.group(2).upper().replace("X", "x")
         d["ftomn_count"] = m.group(3)
         d["ftomn_method"] = m.group(4)
-        d["softcut"] = bool(int(m.group(5)))
     launch_section = ""
     m = re.search(r"Uruchamiam:.*?launch\.exe.*?===== KONIEC LOG launch\.exe", text, re.I | re.S)
     if m:
@@ -729,8 +715,6 @@ def _extract_summary(logs: list[str], current_name: str = "", output_name: str =
         if m:
             name = m.group(1).strip()
             d["activation"] = "Clutch" if "kuppl" in name.lower() else "Brake"
-    if "softcut" not in d:
-        d["softcut"] = "Softcut" in text and ("20 ms" in text or "20ms" in text)
 
     # Checksum / output
     m = re.search(r"DONE!\s*(\d+)/(\d+)\s*error", text, re.I)
@@ -877,14 +861,7 @@ def _build_professional_log(logs: list[str], current_name: str = "", output_name
     add_kv("Speed Threshold", f"{float(s.get('speed')):.0f} km/h" if s.get("speed") else "")
     add_kv("RPM Threshold", f"{float(s.get('rpm_threshold')):.0f} rpm" if s.get("rpm_threshold") else "")
     add_kv("Throttle Threshold", f"{float(s.get('throttle')):.0f} %" if s.get("throttle") else "")
-    add_kv("Ignition Cut", f"{float(s.get('ign_cut')):.0f} ms" if s.get("ign_cut") else ("20 ms" if s.get("softcut") else ""))
-    add("")
-    add("Soft Cut")
-    add("")
-    add_kv("Status", "ENABLED" if s.get("softcut") else "DISABLED")
-    add_kv("FTOMN Address", s.get("ftomn_addr"))
-    add_kv("FTOMN Value", s.get("ftomn_value") or s.get("ftomn_from"))
-    add_kv("Detection", f"{s.get('ftomn_method')} / {s.get('ftomn_count')} match(es)" if s.get("ftomn_method") else "")
+    add_kv("Ignition Cut", f"{float(s.get('ign_cut')):.0f} ms" if s.get("ign_cut") else "")
     add("")
     add("Rolling Anti-Lag")
     add("")
@@ -1073,8 +1050,6 @@ class DesktopController:
 
         self.config.pushButton_2.clicked.connect(self.config.hide)
         self.config.pushButton_3.clicked.connect(self.save_config_or_checksum)
-        if hasattr(self.config, "checkBox") and self.config.checkBox:
-            self.config.checkBox.stateChanged.connect(self._softcut_changed)
         self.info.pushButton_2.clicked.connect(self.info.hide)
         pops_box = getattr(self.main, "checkBox_2", None)
         if pops_box is not None:
@@ -1134,10 +1109,6 @@ class DesktopController:
         self.config.show()
         self.config.raise_()
 
-    def _softcut_changed(self, state):
-        if state and hasattr(self.config, "IgnitionCutDuration"):
-            self.config.IgnitionCutDuration.setText("20")
-
     def _set_busy(self, busy: bool):
         for w in [self.main.pushButton, self.main.pushButton_3, self.main.pushButton_4, self.config.pushButton_3]:
             if w:
@@ -1151,7 +1122,7 @@ class DesktopController:
     def _set_config_enabled(self, enabled: bool):
         for name in [
             "SpeedThreshold", "LaunchRPM", "IgnitionCutDuration", "RPMThreshold",
-            "lineEdit_5", "comboBox", "checkBox", "comboBox_2", "lineEdit", "lineEdit_2",
+            "lineEdit_5", "comboBox", "comboBox_2", "lineEdit", "lineEdit_2",
         ]:
             w = getattr(self.config, name, None)
             if w:
@@ -1499,7 +1470,6 @@ class DesktopController:
                         f"value=0x{int(ft['value']):02X} "
                         f"count={int(ft.get('count', 1))} "
                         f"method={ft.get('method', '-')} "
-                        f"softcut={int(bool(ft.get('softcut')))}"
                     )
                 else:
                     markers.append("GUI_FTOMN not_found=1")
@@ -1586,42 +1556,6 @@ class DesktopController:
             self.selected_features["rolling_trigger"] = str(current_rolling_trigger)
         elif self.selected_features.get("rolling_trigger"):
             self._set_rolling_trigger_combo(str(self.selected_features.get("rolling_trigger")))
-
-        # Soft Cut checkbox is synchronized directly from FTOMN in the BIN.
-        # This uses detect_ftomn_in_bin(), which is a Python port of launch.php findFTOMN():
-        # primary match -> +22, fallback match -> +11, and 512 kB regex fallback.
-        # We only auto-control this checkbox when Launch or Rolling is already detected,
-        # because otherwise FTOMN should not decide GUI state for a stock file.
-        self._sync_softcut_checkbox_from_ftomn(result)
-
-    def _sync_softcut_checkbox_from_ftomn(self, result: dict):
-        if not hasattr(self.config, "checkBox") or self.config.checkBox is None:
-            return
-
-        has_launch_or_rolling = bool(
-            (result.get("patch") or {}).get("installed")
-            or (result.get("rolling") or {}).get("installed")
-        )
-        if not has_launch_or_rolling:
-            self.config.checkBox.blockSignals(True)
-            self.config.checkBox.setChecked(False)
-            self.config.checkBox.blockSignals(False)
-            return
-
-        try:
-            if not self.current_bin or not self.current_bin.exists():
-                return
-            ft = detect_ftomn_in_bin(self.current_bin.read_bytes())
-        except Exception:
-            return
-
-        if not ft.get("found"):
-            return
-
-        ftomn_value = int(ft.get("value", 0))
-        self.config.checkBox.blockSignals(True)
-        self.config.checkBox.setChecked(ftomn_value > 0x01)
-        self.config.checkBox.blockSignals(False)
 
     def _normalize_rolling_trigger_value(self, value) -> str:
         """Return rolling_chain.py trigger key from combo data/text/symbol.
@@ -1788,7 +1722,6 @@ class DesktopController:
             activator=activator,
             rolling_trigger=rolling_trigger,
             rolling_config=self._collect_rolling_values(),
-            softcut=self.config.checkBox.isChecked(),
             callback=self._after_patch,
         )
 
@@ -1821,7 +1754,6 @@ class DesktopController:
             has_config=has_config,
             values=self._collect_values(),
             activator=self.config.comboBox.currentData() or "B_kuppl",
-            softcut=self.config.checkBox.isChecked(),
             rolling_values=self._collect_rolling_values(),
             rolling_trigger=self._get_selected_rolling_trigger(),
             callback=self._after_save_checksum,
