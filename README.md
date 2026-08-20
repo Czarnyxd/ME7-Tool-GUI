@@ -1,17 +1,22 @@
 ## Screenshots
 
+### Main Window
+
+<p align="center">
+  <img src="images/mainwindow.png" width="750">
+</p>
+
 ### Configuration
 
 <p align="center">
   <img src="images/config-window-empty.png" width="750">
 </p>
 
-### Configuration after ECU analysis
+### Configuration after ECU Analysis
 
 <p align="center">
   <img src="images/config-window-loaded.png" width="750">
 </p>
-
 
 
 # 🚗 ME7 Desktop Tool GUI
