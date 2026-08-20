@@ -1,18 +1,24 @@
-## Screenshots
+<h2>Screenshots</h2>
 
-### Main Window
+<h3>Main Window — Empty</h3>
 
 <p align="center">
-  <img src="images/mainwindow.png" width="750">
+  <img src="images/main-window-empty.png" width="750">
 </p>
 
-### Configuration
+<h3>Configuration Window — Empty</h3>
 
 <p align="center">
   <img src="images/config-window-empty.png" width="750">
 </p>
 
-### Configuration after ECU Analysis
+<h3>Main Window — Loaded</h3>
+
+<p align="center">
+  <img src="images/main-window-loaded.png" width="750">
+</p>
+
+<h3>Configuration Window — Loaded</h3>
 
 <p align="center">
   <img src="images/config-window-loaded.png" width="750">
