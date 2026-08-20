@@ -179,17 +179,6 @@ Supported configuration:
 
 ---
 
-## 🔥 Soft Cut
-
-Experimental Soft Cut mode for Launch Control.
-
-When enabled:
-
-* Ignition Cut Duration is automatically set to **20 ms**
-* The original OEM FTOMN value is restored when required
-
----
-
 ## ✅ Automatic Checksum Correction
 
 Firmware checksums are automatically corrected using:
